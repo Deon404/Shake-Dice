@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -57,6 +59,7 @@ fun DiceCountSelector(
   val options = listOf(1, 2, 3)
   val containerShape = RoundedCornerShape(16.dp)
   val itemShape = RoundedCornerShape(12.dp)
+  val haptic = LocalHapticFeedback.current
 
   Box(
     modifier = modifier
@@ -108,7 +111,12 @@ fun DiceCountSelector(
               interactionSource = interactionSource,
               indication = ripple(bounded = true),
               enabled = enabled,
-              onClick = { onCountSelected(count) }
+              onClick = {
+                if (count != selectedCount) {
+                  haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                onCountSelected(count)
+              }
             )
             .semantics {
               role = Role.RadioButton

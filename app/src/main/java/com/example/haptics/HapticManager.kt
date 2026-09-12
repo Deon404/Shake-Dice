@@ -42,6 +42,15 @@ class HapticManager(context: Context) {
   }
 
   /**
+   * Subtle intermittent haptic tick during continuous physical shake tumbling.
+   * Feeds the tactile sensation of dice bouncing inside a cup.
+   */
+  fun performContinuousRollingTick() {
+    if (!isEnabled || !isAvailable) return
+    vibrate(durationMs = 12, effectId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) VibrationEffect.EFFECT_TICK else null)
+  }
+
+  /**
    * Subtle landing haptic when the dice settle on the final result.
    */
   fun performDiceLandingHaptic() {

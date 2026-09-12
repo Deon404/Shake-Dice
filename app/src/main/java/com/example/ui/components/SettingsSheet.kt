@@ -1,13 +1,21 @@
 package com.example.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,11 +26,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Sensors
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.Warning
@@ -36,7 +47,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,8 +58,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,6 +81,7 @@ import com.example.ui.theme.FluidDarkGrey
 import com.example.ui.theme.PrimaryTextLight
 import com.example.ui.theme.SecondaryTextLight
 import com.example.ui.theme.SystemBackgroundLight
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +97,8 @@ fun SettingsSheet(
   diceCount: Int,
   onSelectDiceCount: (Int) -> Unit,
   isSensorSupported: Boolean,
-  isHapticsSupported: Boolean
+  isHapticsSupported: Boolean,
+  liveMotionIntensity: Float = 0f
 ) {
   ModalBottomSheet(
     onDismissRequest = onDismiss,
@@ -253,9 +277,10 @@ fun SettingsSheet(
             .fillMaxWidth()
             .padding(16.dp)
         ) {
+          // Card Header
           Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = 14.dp)
           ) {
             LeadingIconBox(
               icon = Icons.Outlined.Tune,
@@ -278,59 +303,95 @@ fun SettingsSheet(
             }
           }
 
-          // Cupertino Segmented Selector Bar
-          Row(
+          // Elevated Pill Segmented Selector matching DiceCountSelector design
+          val containerShape = RoundedCornerShape(16.dp)
+          val itemShape = RoundedCornerShape(12.dp)
+          val haptic = LocalHapticFeedback.current
+
+          Box(
             modifier = Modifier
               .fillMaxWidth()
-              .height(44.dp)
-              .clip(RoundedCornerShape(12.dp))
-              .background(Color(0xFFE7EEF8))
-              .border(1.dp, Color(0xFFD2E0F2), RoundedCornerShape(12.dp))
-              .padding(3.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+              .height(50.dp)
+              .shadow(2.dp, containerShape, ambientColor = Color(0x0C1E3A8A), spotColor = Color(0x141E3A8A))
+              .clip(containerShape)
+              .background(Color(0xFFD3E2F4))
+              .border(1.dp, Color(0x66FFFFFF), containerShape)
+              .padding(4.dp)
+              .testTag("shake_sensitivity_selector"),
+            contentAlignment = Alignment.Center
           ) {
-            ShakeSensitivity.values().forEach { item ->
-              val isSelected = item == sensitivity
-              Box(
-                modifier = Modifier
-                  .weight(1f)
-                  .clip(RoundedCornerShape(9.dp))
-                  .shadow(
-                    elevation = if (isSelected) 2.dp else 0.dp,
-                    shape = RoundedCornerShape(9.dp),
-                    ambientColor = Color(0x12000000),
-                    spotColor = Color(0x18000000)
-                  )
-                  .background(if (isSelected) Color.White else Color.Transparent)
-                  .clickable { onSelectSensitivity(item) }
-                  .testTag("sensitivity_${item.name.lowercase()}"),
-                contentAlignment = Alignment.Center
-              ) {
-                Text(
-                  text = item.displayName,
-                  fontSize = 13.sp,
-                  fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                  color = if (isSelected) FluidDarkGrey else SecondaryTextLight
+            Row(
+              modifier = Modifier.fillMaxSize(),
+              horizontalArrangement = Arrangement.SpaceEvenly,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              ShakeSensitivity.values().forEach { item ->
+                val isSelected = item == sensitivity
+                val interactionSource = remember { MutableInteractionSource() }
+
+                val textColor by animateColorAsState(
+                  targetValue = if (isSelected) FluidDarkGrey else SecondaryTextLight,
+                  animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                  label = "sensitivity_text_color"
                 )
+
+                Box(
+                  modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(itemShape)
+                    .then(
+                      if (isSelected) {
+                        Modifier
+                          .shadow(
+                            elevation = 3.dp,
+                            shape = itemShape,
+                            ambientColor = Color(0x1F000000),
+                            spotColor = Color(0x28000000)
+                          )
+                          .background(Color.White)
+                      } else {
+                        Modifier
+                      }
+                    )
+                    .clickable(
+                      interactionSource = interactionSource,
+                      indication = ripple(bounded = true),
+                      onClick = {
+                        if (item != sensitivity) {
+                          haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                          onSelectSensitivity(item)
+                        }
+                      }
+                    )
+                    .semantics {
+                      role = Role.RadioButton
+                      selected = isSelected
+                      contentDescription = "${item.displayName} sensitivity"
+                    }
+                    .testTag("sensitivity_${item.name.lowercase()}"),
+                  contentAlignment = Alignment.Center
+                ) {
+                  Text(
+                    text = item.displayName,
+                    fontSize = 15.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = textColor
+                  )
+                }
               }
             }
           }
 
-          // Active sensitivity dynamic description
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(top = 10.dp)
-              .clip(RoundedCornerShape(8.dp))
-              .background(Color(0xFFF1F6FD))
-              .padding(horizontal = 10.dp, vertical = 7.dp)
-          ) {
-            Text(
-              text = sensitivity.description,
-              fontSize = 12.sp,
-              color = SecondaryTextLight
-            )
-          }
+          Spacer(modifier = Modifier.height(14.dp))
+
+          // Clean descriptive text
+          Text(
+            text = sensitivity.description,
+            fontSize = 13.sp,
+            color = SecondaryTextLight,
+            modifier = Modifier.padding(start = 2.dp)
+          )
         }
       }
 

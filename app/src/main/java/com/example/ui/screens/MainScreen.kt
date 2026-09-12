@@ -331,7 +331,8 @@ fun MainScreen(
         diceCount = uiState.diceCount,
         onSelectDiceCount = { viewModel.setDiceCount(it) },
         isSensorSupported = uiState.isSensorSupported,
-        isHapticsSupported = uiState.isHapticsSupported
+        isHapticsSupported = uiState.isHapticsSupported,
+        liveMotionIntensity = uiState.debugInfo.motionIntensity
       )
     }
 
