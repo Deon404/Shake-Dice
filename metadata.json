@@ -1,0 +1,6 @@
+{
+  "name": "Shake Dice",
+  "description": "Minimalist digital dice app with motion shake detection, tactile haptics, and precision randomness.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
